@@ -1,7 +1,6 @@
 package net.mjr.commandservice.servcice;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.ExitCodeEvent;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -11,7 +10,6 @@ import net.mjr.commandservice.config.CommandsConfig;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -19,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 
 @Service
 public class CommandService {
@@ -33,7 +30,7 @@ public class CommandService {
 
     public Optional<String> executeCommand(final String commandKey) {
         final String os = System.getProperty("os.name");
-        System.out.println("OS: " + os);
+        System.out.println("OS: "+ os +", commandKey: "+ commandKey);
         boolean isWindows = os.toLowerCase().startsWith("windows");
 
         String response = "";
@@ -42,7 +39,7 @@ public class CommandService {
             final String command = entry.getValue();
 
             if (commandKey.equals(key)) {
-                System.out.println("Found: "+ key +":"+ command);
+                System.out.println("Found: "+ key +"="+ command);
                 try {
                     ProcessBuilder builder = new ProcessBuilder();
                     if (isWindows) {
@@ -57,12 +54,17 @@ public class CommandService {
                     List<String> responseLines = new ArrayList<>();
                     StreamBuffer streamBuffer = new StreamBuffer(process.getInputStream(), responseLines);
                     Executors.newSingleThreadExecutor().submit(streamBuffer);
+                    StreamBuffer errorStreamBuffer = new StreamBuffer(process.getErrorStream(), responseLines);
+                    Executors.newSingleThreadExecutor().submit(errorStreamBuffer);
                     int exitCode = process.waitFor();
 
                     for (String line : responseLines) {
-                        response += line;
+                        response += line +"\n";
                     }
-                    response += "\nExitCode: "+ exitCode;
+                    response += "ExitCode: "+ exitCode;
+
+                    System.out.println("Response:");
+                    System.out.println(response);
                 } catch (Exception e) {
                     throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), e);
                 } 
@@ -78,16 +80,16 @@ public class CommandService {
 
     private static class StreamBuffer implements Runnable {
         private InputStream inputStream;
-        private List<String> consumer;
+        private List<String> list;
      
-        public StreamBuffer(InputStream inputStream, List<String> consumer) {
+        public StreamBuffer(InputStream inputStream, List<String> list) {
             this.inputStream = inputStream;
-            this.consumer = consumer;
+            this.list = list;
         }
      
         @Override
         public void run() {
-            new BufferedReader(new InputStreamReader(inputStream)).lines().forEach(consumer::add);
+            new BufferedReader(new InputStreamReader(inputStream)).lines().forEach(list::add);
         }
     }
     
