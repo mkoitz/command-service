@@ -7,6 +7,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import net.mjr.commandservice.config.CommandsConfig;
+import net.mjr.commandservice.dto.CommandResponseDTO;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -28,12 +29,12 @@ public class CommandService {
         this.config = config;
     }
 
-    public Optional<String> executeCommand(final String commandKey) {
+    public Optional<CommandResponseDTO> executeCommand(final String commandKey) {
         final String os = System.getProperty("os.name");
         System.out.println("OS: "+ os +", commandKey: "+ commandKey);
         boolean isWindows = os.toLowerCase().startsWith("windows");
 
-        String response = "";
+        CommandResponseDTO response = new CommandResponseDTO();
         for (Map.Entry<String, String> entry : this.config.getCommands().entrySet()) {
             final String key = entry.getKey();
             final String command = entry.getValue();
@@ -51,19 +52,12 @@ public class CommandService {
                     builder.directory(new File(System.getProperty("user.home")));
 
                     Process process = builder.start();
-                    List<String> responseLines = new ArrayList<>();
-                    StreamBuffer streamBuffer = new StreamBuffer(process.getInputStream(), responseLines);
+                    StreamBuffer streamBuffer = new StreamBuffer(process.getInputStream(), response.getMessages());
                     Executors.newSingleThreadExecutor().submit(streamBuffer);
-                    StreamBuffer errorStreamBuffer = new StreamBuffer(process.getErrorStream(), responseLines);
+                    StreamBuffer errorStreamBuffer = new StreamBuffer(process.getErrorStream(), response.getMessages());
                     Executors.newSingleThreadExecutor().submit(errorStreamBuffer);
-                    int exitCode = process.waitFor();
+                    response.setStatus(Integer.toString(process.waitFor()));
 
-                    for (String line : responseLines) {
-                        response += line +"\n";
-                    }
-                    response += "ExitCode: "+ exitCode;
-
-                    System.out.println("Response:");
                     System.out.println(response);
                 } catch (Exception e) {
                     throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), e);
@@ -71,7 +65,7 @@ public class CommandService {
             }
         }
 
-        if(StringUtils.isEmpty(response)) {
+        if(StringUtils.isEmpty(response.getStatus())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Command not found!");
         }
 

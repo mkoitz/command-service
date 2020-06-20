@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import net.mjr.commandservice.dto.CommandResponseDTO;
 import net.mjr.commandservice.servcice.CommandService;
 import javax.validation.constraints.*;
 import java.util.Optional;
@@ -23,8 +25,8 @@ public class CommandResource {
     }
 
     @PostMapping(value = "/{commandKey}", produces = "application/json")
-    public @ResponseBody ResponseEntity<String> executeCommand(@PathVariable @NotNull final String commandKey) {
-        Optional<String> commandReturn = this.commandService.executeCommand(commandKey);
-        return ResponseEntity.ok().body(commandReturn.orElse("Empty"));
+    public @ResponseBody ResponseEntity<CommandResponseDTO> executeCommand(@PathVariable @NotNull final String commandKey) {
+        Optional<CommandResponseDTO> commandReturn = this.commandService.executeCommand(commandKey);
+        return ResponseEntity.ok().body(commandReturn.get());
     }
 }
